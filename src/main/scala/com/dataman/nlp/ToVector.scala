@@ -29,16 +29,9 @@ object ToVector {
     // Select vocab
     //  (vocab: Map[word -> id], total tokens after selecting vocab)
 
-    val (vocab: Map[String, Int], selectedTokenCount: Long) = {
-      val tmpSortedWC: Array[(String, Long)] = if (vocabSize == -1 || fullVocabSize <= vocabSize) {
-        // Use all terms
-        wordCounts.collect().sortBy(-_._2)
-      } else {
-        // Sort terms to select vocab
-        wordCounts.sortBy(_._2, ascending = false).take(vocabSize)
-      }                                                                      // ??vocabSize??????
-      (tmpSortedWC.map(_._1).zipWithIndex.toMap, tmpSortedWC.map(_._2).sum)  //?????????index??????????????????
-    }
+    val vocab1 = sc.textFile("hdfs://10.3.12.9:9000/users/root/lda/vocab")
+    val v = vocab1.map(x => (x.substring(1, x.lastIndexOf(",")) -> (x.substring(x.lastIndexOf(",")+1, x.size - 1).toInt)))
+    val vocab = v.collect.toMap
 
     val documents = tokenized.map { case (id, tokens) =>
       // Filter tokens by vocabulary, and create word count vector representation of document.
@@ -83,17 +76,9 @@ object ToVector {
     // Select vocab
     //  (vocab: Map[word -> id], total tokens after selecting vocab)
 
-    val (vocab: Map[String, Int], selectedTokenCount: Long) = {
-      val tmpSortedWC: Array[(String, Long)] = if (vocabSize == -1 || fullVocabSize <= vocabSize) {
-        // Use all terms
-        wordCounts.collect().sortBy(-_._2)
-      } else {
-        // Sort terms to select vocab
-        wordCounts.sortBy(_._2, ascending = false).take(vocabSize)
-      }                                                                      // ??vocabSize??????
-      (tmpSortedWC.map(_._1).zipWithIndex.toMap, tmpSortedWC.map(_._2).sum)  //?????????index??????????????????
-    }
-
+    val vocab1  = sc.textFile("hdfs://10.3.12.9:9000/users/root/lda/vocab")
+    val v = vocab1.map(x => (x.substring(1, x.lastIndexOf(",")) -> (x.substring(x.lastIndexOf(",")+1, x.size - 1).toInt)))
+    val vocab = v.collect.toMap
 
     val documents = tokenized.map { case (id, tokens) =>
       // Filter tokens by vocabulary, and create word count vector representation of document.

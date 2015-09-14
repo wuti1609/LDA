@@ -8,18 +8,17 @@ import org.apache.spark.{SparkContext, SparkConf}
 import org.jsoup.Jsoup
 import org.apache.spark.sql.SQLContext
 import scala.collection.JavaConversions._
+import scala.compat.Platform
+import edu.stanford.nlp.ie.crf.CRFClassifier
+import edu.stanford.nlp.ling.CoreLabel
 
 /**
  * Created by ener on 8/31/15.
  */
 object predictArticle {
 
-  def getArticle(articleId:Int,appId:Int,content:String):java.util.List[String]={
-
-    val conf = new SparkConf()
-    val sc = new SparkContext(conf)
-    val sqlContext= new SQLContext(sc)
-    val lda = LocalLDAModel.load(sc, "hdfs://10.3.12.9:9000/test/ModelMatrix/Matrix1")
+  def getArticle(sc:SparkContext, sqlContext:SQLContext, lda:LocalLDAModel, articleId:Int,appId:Int,content:String, analyzer:CRFClassifier[CoreLabel]):java.util.List[String]={
+//    val sqlContext= new SQLContext(sc)
     val artRdd:RDD[String]=sc.textFile("hdfs://10.3.12.9:9000/test/PrWord/Word1/",10)
     val inputRdd=artRdd.map(x=>{x.replaceAll(s"\\]|\\)","").split("\\[")
     }).map(y=>{
@@ -31,21 +30,30 @@ object predictArticle {
     val text = Jsoup.parse(content).text()
     val baseURL="/var/analyzer"
     //val baseURL="http://10.3.12.2:8666/analyzer"
-    val result=StanfordSegment.articleSegment(baseURL).segmentString(text).toArray().mkString(" ").replaceAll(s"\\r\\n","").replaceAll("\\pP|\\pS","").replaceAll("[a-zA-Z]","").replaceAll(" +"," ")
+//    val result = StanfordSegment.articleSegment(baseURL).segmentString(text).toArray().mkString(" ").replaceAll(s"\\r\\n","").replaceAll("\\pP|\\pS","").replaceAll("[a-zA-Z]","").replaceAll(" +"," ")
+    val result = analyzer.segmentString(text).toArray().mkString(" ").replaceAll(s"\\r\\n","").replaceAll("\\pP|\\pS","").replaceAll("[a-zA-Z]","").replaceAll(" +"," ")
+    println("result : " + result)
     val docVec = ToVector.strToVector(sc, result, 100000, "hdfs://10.3.12.9:9000/test/stopword.dic")
-    val preRdd = lda.topicDistributions(docVec).cache()
+//    println("docVec: ")
+//    docVec.map(x => x._2.toArray).take(1)(0).foreach(println)
+println("predict:")
+println(Platform.currentTime)
+    val preRdd = lda.topicDistributions(docVec)
+println("end:")
+println(Platform.currentTime)
     val preVec=preRdd.map(x => x._2.toArray).map(y => {y.toVector}).take(1)(0)
-    //println("preVec")
-    //preVec.toArray.foreach(println)
+    println("preVec")
+    preVec.toArray.foreach(println)
     val topidIndex=preRdd.map(x=>x._2.toArray).collect().take(1)(0)
       //.map(y=>y(0)).collect()
-    //println("tipicIndex")
-    //topidIndex.foreach(println)
+    println("tipicIndex:")
+    topidIndex.foreach(println)
     val value1=topidIndex.sorted.reverse.take(2)
     val index  =new Array[Int](2)
     index(0)=topidIndex.indexOf(value1(0))
     index(1)=topidIndex.indexOf(value1(1))
     val idStr=index.mkString(",")
+    println("idStr: " + idStr)
     val sqlword=sqlContext.read.format("jdbc").options(
           Map(
             "url" -> "jdbc:mysql://10.3.12.10:3306/ldadb?user=ldadev&password=ldadev1234",
@@ -59,12 +67,18 @@ object predictArticle {
       x.map(y=>y(0).toString)
     })
    val word=dfword.collect().mkString(",")
+   println("word: " + word)
     println("get one doc topic")
+println("begin knn:")
+println(Platform.currentTime)
     val vec2 = knnJoin.knnJoin(inputRdd,preVec,5,10,sc)
     val artid=vec2.map(x=>x._2.toString).collect().mkString(",")
+println("end knn:")
+println(Platform.currentTime)
     val retu=artid+":"+word
     val retuLis = List(retu)
-    sc.stop()
+    sqlContext.clearCache()
+//    sc.stop()
     retuLis
     //val recommend_article="{"+str_artid+":"+artid+"}"
     //vec2.repartition(1).saveAsTextFile("hdfs://10.3.12.9:9000/test/preDoc3")
@@ -85,8 +99,8 @@ object predictArticle {
     val artid=4656
     val appid=4646
     val content="古代阿兹特克人发现了可可树，据说其国王每天要喝30杯，请看下面这张图，图片来自墨西哥，是两位印第安酋长在喝巧克力"
-    val list=getArticle(artid,appid,content)
-    println(list)
+//    val list=getArticle(artid,appid,content)
+//    println(list)
 
   }
 }

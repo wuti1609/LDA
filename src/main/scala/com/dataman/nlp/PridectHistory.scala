@@ -14,7 +14,7 @@ object PridectHistory {
 
     val conf = new SparkConf()
     val sc = new SparkContext(conf)
-    val lda = LocalLDAModel.load(sc, "hdfs://10.3.12.9:9000/test/ModelMatrix/Matrix1")
+    val lda = LocalLDAModel.load(sc, "hdfs://10.3.12.9:9000/model/one")
     /*
     val input = lda.describeTopics(10).map(x => x._2).map(y => y.toVector)
     val index1 = input.zipWithIndex.map(x => {

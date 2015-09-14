@@ -113,67 +113,8 @@ object knnJoin {
     val dataSet:RDD[(Vector[Int], Long)] = dataSet1.map(vector => {(vector._1.map(i => (i*100000).toInt), vector._2)})
     val dataPoint:Vector[Int] = dataPoint1.map(i => (i*100000).toInt)
 
-    val size = dataSet.first()._1.length
-    val rand = new Array[Int](size)
-    val randomValue = new Random
-    val rdd1 = dataSet
-
-    //compute z-value for each iteration, this being the first
-    val model = zScore.computeScore(rdd1)
-    val dataScore = zScore.scoreOfDataPoint(dataPoint)
-
-    //for first iteration rand vector is a ZERO vector
-    for(count <- 0 to size-1) rand(count) = 0
-
-    //compute nearest neighbours on basis of z-scores
-    val c_i = knnJoin_perIteration(rdd1, dataPoint, rand.toVector ,len,model, dataScore, sc)
-    c_i.persist()
-
-    //compute -> rdd where data-set generated from each iteration is being recursively appended
-    var compute = c_i
-    compute.persist()
-
-
-    //the no.of iterations to be performed
-    for(count <- 2 to randomSize) {
-
-      for(i <- 0 to size - 1) rand(i) = randomValue.nextInt(100)
-
-
-      //increment each element of the data-set with the random vector "rand"
-      var kLooped = -1
-      val newRDD = rdd1.map(vector => {
-        kLooped = -1
-        vector._1.map(word => word + rand({
-          kLooped = kLooped+1
-          kLooped%size})
-        )} -> vector._2)
-
-
-      val newData_point = dataPoint.map(word => word + rand({kLooped = kLooped+1
-        kLooped % size}))
-
-
-      //compute z-scores for the iteration
-      val modelLooped = zScore.computeScore(newRDD)
-      val data_scoreLooped = zScore.scoreOfDataPoint(newData_point)
-
-      //compute nearest neighbours on basis of z-scores
-      val c_iLooped = knnJoin_perIteration(newRDD, newData_point, rand.toVector,
-        len, modelLooped, data_scoreLooped, sc)
-      c_iLooped.persist()
-
-      //remove the effect of random vector "rand" from each entry of the the returned RDD from knnJoin_perIteration
-      var z_Looped = -1
-      val c_iCleansedLooped = c_iLooped.map(line => {z_Looped = -1
-        line._1.map(word => word - rand({z_Looped = z_Looped+1
-          z_Looped%size})) } -> line._2)
-
-      compute = compute.union(c_iCleansedLooped)
-      compute.persist()
-    }
-
-    zKNN(removeRedundantEntries(compute), dataPoint, len).map(vector => {vector._1.map(i => (i.toDouble)/100000)} -> vector._2)
+    println("dataPoint: " + dataPoint1.foreach(println) + "\n end\n")
+    zKNN(dataSet, dataPoint, len).map(vector => {vector._1.map(i => (i.toDouble)/100000)} -> vector._2)
   }
 
   /**
